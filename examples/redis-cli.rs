@@ -25,7 +25,7 @@ fn main() {
 }
 
 fn process_command(command: RedisCommand, client: &mut redis::Client) -> redis::RedisResult<()> {
-    Ok(match command {
+    match command {
         RedisCommand::Get { key } => {
             let r = client.get::<_, String>(key)?;
             println!("{r}");
@@ -42,5 +42,6 @@ fn process_command(command: RedisCommand, client: &mut redis::Client) -> redis::
             let r = client.sadd::<_, _, usize>(key, values)?;
             println!("{r}");
         }
-    })
+    }
+    Ok(())
 }

@@ -32,16 +32,22 @@ fn main() {
         match command {
             SampleCommand::Download { path, check_sha } => {
                 println!("Downloaded {path} with checking = {check_sha}");
-            },
+            }
             SampleCommand::Upload => {
                 println!("Uploaded");
-            },
+            }
             SampleCommand::Login { username } => {
+                // You can use another `rustyline::Editor` inside the loop.
                 let mut rl = DefaultEditor::new().unwrap();
-                let username = username.unwrap_or_else(|| rl.readline(&style("What is your username? ").bold().to_string()).unwrap());
-                let password = rl.readline(&style("What is your password? ").bold().to_string()).unwrap();
+                let username = username.unwrap_or_else(|| {
+                    rl.readline(&style("What is your username? ").bold().to_string())
+                        .unwrap()
+                });
+                let password = rl
+                    .readline(&style("What is your password? ").bold().to_string())
+                    .unwrap();
                 println!("Logged in with {username} and {password}");
-            },
+            }
         }
     }
 }

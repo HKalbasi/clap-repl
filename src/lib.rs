@@ -28,7 +28,7 @@ impl<C: Parser> Hinter for ClapEditorHelper<C> {
 
     fn hint(&self, line: &str, _pos: usize, _ctx: &rustyline::Context<'_>) -> Option<Self::Hint> {
         let command = C::command();
-        let args = shlex::split(&line).unwrap();
+        let args = shlex::split(line).unwrap();
         if let [arg] = args.as_slice() {
             for c in command.get_subcommands() {
                 if let Some(x) = c.get_name().strip_prefix(arg) {
@@ -45,6 +45,12 @@ impl<C: Parser> Helper for ClapEditorHelper<C> {}
 
 pub struct ClapEditor<C: Parser> {
     rl: Editor<ClapEditorHelper<C>, rustyline::history::FileHistory>,
+}
+
+impl<C: Parser> Default for ClapEditor<C> {
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 impl<C: Parser> ClapEditor<C> {
