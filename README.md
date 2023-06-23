@@ -1,5 +1,8 @@
 # clap-repl
 
+[![Rust](https://github.com/HKalbasi/clap-repl/actions/workflows/rust.yml/badge.svg)](https://github.com/HKalbasi/clap-repl/actions/workflows/rust.yml)
+[![crates.io](https://img.shields.io/crates/v/clap-repl.svg)](https://crates.io/crates/clap-repl)
+
 One of the typical user interfaces for prompting commands is the repl (read eval print loop). One of the best ways of representing commands in a repl
 is using space separated arguments, which is what terminal shells do. And the way to parse such commands in Rust is the `clap` crate. This crate uses
 `clap` and `rustyline` to provide such user interface in a way that you only focus on your app logic.
