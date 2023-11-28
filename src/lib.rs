@@ -45,6 +45,7 @@ impl<C: Parser> Helper for ClapEditorHelper<C> {}
 
 pub struct ClapEditor<C: Parser> {
     rl: Editor<ClapEditorHelper<C>, rustyline::history::FileHistory>,
+    prompt: String,
 }
 
 impl<C: Parser> Default for ClapEditor<C> {
@@ -54,7 +55,8 @@ impl<C: Parser> Default for ClapEditor<C> {
 }
 
 impl<C: Parser> ClapEditor<C> {
-    pub fn new() -> Self {
+
+    fn construct(prompt: String) -> Self {
         let mut rl = Editor::<ClapEditorHelper<C>, _>::new().unwrap();
         rl.set_helper(Some(ClapEditorHelper {
             c_phantom: PhantomData,
@@ -63,11 +65,19 @@ impl<C: Parser> ClapEditor<C> {
             Event::KeySeq(vec![KeyEvent(KeyCode::Tab, Modifiers::NONE)]),
             Cmd::CompleteHint,
         );
-        ClapEditor { rl }
+        ClapEditor { rl, prompt}
+    }
+
+    pub fn new() -> Self {
+        Self::construct(style(">> ").cyan().bright().to_string())
+    }
+
+    pub fn new_with_prompt(prompt: impl From<String>) -> Self {
+        Self::construct(prompt.into())
     }
 
     pub fn read_command(&mut self) -> Option<C> {
-        let line = match self.rl.readline(&style(">> ").cyan().bright().to_string()) {
+        let line = match self.rl.readline(&self.prompt) {
             Ok(x) => x,
             Err(e) => match e {
                 rustyline::error::ReadlineError::Eof
