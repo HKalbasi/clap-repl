@@ -28,7 +28,8 @@ impl<C: Parser> Hinter for ClapEditorHelper<C> {
 
     fn hint(&self, line: &str, _pos: usize, _ctx: &rustyline::Context<'_>) -> Option<Self::Hint> {
         let command = C::command();
-        let args = shlex::split(line).unwrap();
+        let args = shlex::split(line)?;
+
         if let [arg] = args.as_slice() {
             for c in command.get_subcommands() {
                 if let Some(x) = c.get_name().strip_prefix(arg) {
@@ -42,9 +43,9 @@ impl<C: Parser> Hinter for ClapEditorHelper<C> {
 
 impl<C: Parser> Helper for ClapEditorHelper<C> {}
 
-
 pub struct ClapEditor<C: Parser> {
     rl: Editor<ClapEditorHelper<C>, rustyline::history::FileHistory>,
+    prompt: String,
 }
 
 impl<C: Parser> Default for ClapEditor<C> {
@@ -54,7 +55,7 @@ impl<C: Parser> Default for ClapEditor<C> {
 }
 
 impl<C: Parser> ClapEditor<C> {
-    pub fn new() -> Self {
+    fn construct(prompt: String) -> Self {
         let mut rl = Editor::<ClapEditorHelper<C>, _>::new().unwrap();
         rl.set_helper(Some(ClapEditorHelper {
             c_phantom: PhantomData,
@@ -63,11 +64,21 @@ impl<C: Parser> ClapEditor<C> {
             Event::KeySeq(vec![KeyEvent(KeyCode::Tab, Modifiers::NONE)]),
             Cmd::CompleteHint,
         );
-        ClapEditor { rl }
+        ClapEditor { rl, prompt }
+    }
+
+    /// Creates a new `ClapEditor` with the default prompt.
+    pub fn new() -> Self {
+        Self::construct(style(">> ").cyan().bright().to_string())
+    }
+
+    /// Creates a new `ClapEditor` with the given prompt.
+    pub fn new_with_prompt(prompt: &str) -> Self {
+        Self::construct(prompt.into())
     }
 
     pub fn read_command(&mut self) -> Option<C> {
-        let line = match self.rl.readline(&style(">> ").cyan().bright().to_string()) {
+        let line = match self.rl.readline(&self.prompt) {
             Ok(x) => x,
             Err(e) => match e {
                 rustyline::error::ReadlineError::Eof
@@ -79,12 +90,25 @@ impl<C: Parser> ClapEditor<C> {
         if line.trim().is_empty() {
             return None;
         }
+
         _ = self.rl.add_history_entry(line.as_str());
-        let splited = shlex::split(&line).unwrap();
-        match C::try_parse_from(Some("".to_owned()).into_iter().chain(splited)) {
-            Ok(c) => Some(c),
-            Err(e) => {
-                e.print().unwrap();
+
+        match shlex::split(&line) {
+            Some(split) => {
+                match C::try_parse_from(std::iter::once("").chain(split.iter().map(String::as_str)))
+                {
+                    Ok(c) => Some(c),
+                    Err(e) => {
+                        e.print().unwrap();
+                        None
+                    }
+                }
+            }
+            None => {
+                println!(
+                    "{} input was not valid and could not be processed",
+                    style("error:").red().bold()
+                );
                 None
             }
         }
