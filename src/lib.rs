@@ -7,7 +7,7 @@ use rustyline::{
     Event, Helper, KeyCode, KeyEvent, Modifiers,
 };
 
-struct ClapEditorHelper<C: Parser> {
+pub struct ClapEditorHelper<C: Parser> {
     c_phantom: PhantomData<C>,
 }
 
@@ -75,6 +75,10 @@ impl<C: Parser> ClapEditor<C> {
     /// Creates a new `ClapEditor` with the given prompt.
     pub fn new_with_prompt(prompt: &str) -> Self {
         Self::construct(prompt.into())
+    }
+
+    pub fn get_editor(&mut self) -> &mut Editor<ClapEditorHelper<C>, rustyline::history::FileHistory> {
+        &mut self.rl
     }
 
     pub fn read_command(&mut self) -> Option<C> {
