@@ -38,8 +38,10 @@ enum Mode {
 }
 
 fn main() {
-    let mut prompt = DefaultPrompt::default();
-    prompt.left_prompt = DefaultPromptSegment::Basic("simple-example".to_owned());
+    let prompt = DefaultPrompt {
+        left_prompt: DefaultPromptSegment::Basic("simple-example".to_owned()),
+        ..DefaultPrompt::default()
+    };
     let mut rl = ClapEditor::<SampleCommand>::new_with_prompt(Box::new(prompt), |reed| {
         // Do custom things with `Reedline` instance here
         reed.with_history(Box::new(
