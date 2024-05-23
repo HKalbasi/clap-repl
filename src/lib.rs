@@ -1,101 +1,133 @@
-use std::{borrow::Cow, marker::PhantomData, process::exit};
+use std::{ffi::OsString, marker::PhantomData, path::PathBuf, process::exit, str::FromStr};
 
-use clap::Parser;
+use clap::{Parser, Subcommand};
 use console::style;
-use rustyline::{
-    completion::Completer, highlight::Highlighter, hint::Hinter, validate::Validator, Cmd, Editor,
-    Event, Helper, KeyCode, KeyEvent, Modifiers,
+use nu_ansi_term::{Color, Style};
+use reedline::{
+    default_emacs_keybindings, DefaultHinter, DefaultPrompt, Emacs, IdeMenu, KeyModifiers,
+    MenuBuilder, Prompt, Reedline, ReedlineEvent, ReedlineMenu, Signal, Span,
 };
+use shlex::Shlex;
 
-pub struct ClapEditorHelper<C: Parser> {
+pub struct ClapEditor<C: Parser + Send + Sync + 'static> {
+    rl: Reedline,
+    prompt: Box<dyn Prompt>,
     c_phantom: PhantomData<C>,
 }
 
-impl<C: Parser> Completer for ClapEditorHelper<C> {
-    type Candidate = &'static str;
-}
-
-impl<C: Parser> Highlighter for ClapEditorHelper<C> {
-    fn highlight_hint<'h>(&self, hint: &'h str) -> Cow<'h, str> {
-        Cow::Owned(style(hint).dim().to_string())
-    }
-}
-
-impl<C: Parser> Validator for ClapEditorHelper<C> {}
-
-impl<C: Parser> Hinter for ClapEditorHelper<C> {
-    type Hint = String;
-
-    fn hint(&self, line: &str, _pos: usize, _ctx: &rustyline::Context<'_>) -> Option<Self::Hint> {
-        let command = C::command();
-        let args = shlex::split(line)?;
-
-        if let [arg] = args.as_slice() {
-            for c in command.get_subcommands() {
-                if let Some(x) = c.get_name().strip_prefix(arg) {
-                    return Some(x.to_string());
-                }
-            }
-        }
-        None
-    }
-}
-
-impl<C: Parser> Helper for ClapEditorHelper<C> {}
-
-pub struct ClapEditor<C: Parser> {
-    rl: Editor<ClapEditorHelper<C>, rustyline::history::FileHistory>,
-    prompt: String,
-}
-
-impl<C: Parser> Default for ClapEditor<C> {
+impl<C: Parser + Send + Sync + 'static> Default for ClapEditor<C> {
     fn default() -> Self {
         Self::new()
     }
 }
 
-impl<C: Parser> ClapEditor<C> {
-    fn construct(prompt: String) -> Self {
-        let mut rl = Editor::<ClapEditorHelper<C>, _>::new().unwrap();
-        rl.set_helper(Some(ClapEditorHelper {
-            c_phantom: PhantomData,
-        }));
-        rl.bind_sequence(
-            Event::KeySeq(vec![KeyEvent(KeyCode::Tab, Modifiers::NONE)]),
-            Cmd::CompleteHint,
+struct ReedCompleter<C: Parser + Send + Sync + 'static> {
+    c_phantom: PhantomData<C>,
+}
+
+impl<C: Parser + Send + Sync + 'static> reedline::Completer for ReedCompleter<C> {
+    fn complete(&mut self, line: &str, pos: usize) -> Vec<reedline::Suggestion> {
+        let cmd = C::command();
+        let mut cmd = clap_complete::dynamic::shells::CompleteCommand::augment_subcommands(cmd);
+        let args = Shlex::new(line);
+        let mut args = std::iter::once("".to_owned())
+            .chain(args)
+            .map(OsString::from)
+            .collect::<Vec<_>>();
+        if line.ends_with(' ') {
+            args.push(OsString::new());
+        }
+        let arg_index = args.len() - 1;
+        let span = Span::new(pos - args[arg_index].len(), pos);
+        let Ok(candidates) = clap_complete::dynamic::complete(
+            &mut cmd,
+            args,
+            arg_index,
+            PathBuf::from_str(".").ok().as_deref(),
+        ) else {
+            return vec![];
+        };
+        candidates
+            .into_iter()
+            .map(|c| reedline::Suggestion {
+                value: c.0.to_string_lossy().into_owned(),
+                description: c.1.map(|x| x.to_string()),
+                style: None,
+                extra: None,
+                span,
+                append_whitespace: true,
+            })
+            .collect()
+    }
+}
+
+impl<C: Parser + Send + Sync + 'static> ClapEditor<C> {
+    fn construct(prompt: Box<dyn Prompt>, hook: impl FnOnce(Reedline) -> Reedline) -> Self {
+        let completion_menu = Box::new(
+            IdeMenu::default()
+                .with_default_border()
+                .with_name("completion_menu"),
         );
-        ClapEditor { rl, prompt }
+        let mut keybindings = default_emacs_keybindings();
+        keybindings.add_binding(
+            KeyModifiers::NONE,
+            reedline::KeyCode::Tab,
+            ReedlineEvent::UntilFound(vec![
+                ReedlineEvent::Menu("completion_menu".to_string()),
+                ReedlineEvent::MenuNext,
+            ]),
+        );
+
+        let rl = Reedline::create()
+            .with_completer(Box::new(ReedCompleter::<C> {
+                c_phantom: PhantomData,
+            }))
+            .with_menu(ReedlineMenu::EngineCompleter(completion_menu))
+            .with_hinter(Box::new(
+                DefaultHinter::default().with_style(Style::new().italic().fg(Color::DarkGray)),
+            ))
+            .with_edit_mode(Box::new(Emacs::new(keybindings)));
+
+        let rl = hook(rl);
+        ClapEditor {
+            rl,
+            prompt,
+            c_phantom: PhantomData,
+        }
     }
 
     /// Creates a new `ClapEditor` with the default prompt.
     pub fn new() -> Self {
-        Self::construct(style(">> ").cyan().bright().to_string())
+        Self::construct(Box::new(DefaultPrompt::default()), |e| e)
     }
 
     /// Creates a new `ClapEditor` with the given prompt.
-    pub fn new_with_prompt(prompt: &str) -> Self {
-        Self::construct(prompt.into())
+    pub fn new_with_prompt(
+        prompt: Box<dyn Prompt>,
+        hook: impl FnOnce(Reedline) -> Reedline,
+    ) -> Self {
+        Self::construct(prompt, hook)
     }
 
-    pub fn get_editor(&mut self) -> &mut Editor<ClapEditorHelper<C>, rustyline::history::FileHistory> {
+    pub fn get_editor(&mut self) -> &mut Reedline {
         &mut self.rl
     }
 
     pub fn read_command(&mut self) -> Option<C> {
-        let line = match self.rl.readline(&self.prompt) {
-            Ok(x) => x,
-            Err(e) => match e {
-                rustyline::error::ReadlineError::Eof
-                | rustyline::error::ReadlineError::Interrupted => exit(0),
-                rustyline::error::ReadlineError::WindowResized => return None,
-                _ => panic!("Error in read line: {e:?}"),
-            },
+        let line = match self.rl.read_line(&*self.prompt) {
+            Ok(Signal::Success(buffer)) => buffer,
+            Ok(Signal::CtrlC | Signal::CtrlD) => {
+                // Drop the `rl` in order to save the history
+                _ = std::mem::replace(&mut self.rl, Reedline::create());
+                exit(0);
+            }
+            _ => return None,
         };
         if line.trim().is_empty() {
             return None;
         }
 
-        _ = self.rl.add_history_entry(line.as_str());
+        // _ = self.rl.add_history_entry(line.as_str());
 
         match shlex::split(&line) {
             Some(split) => {
