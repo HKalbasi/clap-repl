@@ -58,7 +58,6 @@ enum Mode {
 }
 
 fn main() {
-    // Use `ClapEditor` instead of the `rustyline::DefaultEditor`.
     let mut prompt = DefaultPrompt::default();
     prompt.left_prompt = DefaultPromptSegment::Basic("simple-example".to_owned());
     let mut rl = ClapEditor::<SampleCommand>::new_with_prompt(Box::new(prompt), |reed| {
