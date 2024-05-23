@@ -98,7 +98,7 @@ impl<C: Parser + Send + Sync + 'static> ClapEditor<C> {
 
     /// Creates a new `ClapEditor` with the default prompt.
     pub fn new() -> Self {
-        Self::construct(Box::new(DefaultPrompt::default()), |e| e)
+        Self::construct(Box::<DefaultPrompt>::default(), |e| e)
     }
 
     /// Creates a new `ClapEditor` with the given prompt.
