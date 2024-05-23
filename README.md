@@ -69,5 +69,6 @@ fn main() {
 ```
 ![Screenshot from 2023-06-22 11-32-58](https://github.com/HKalbasi/clap-repl/assets/45197576/2c1b2ceb-e562-4536-8b42-4025d5a9674a)
 ![Screenshot from 2023-06-22 11-35-33](https://github.com/HKalbasi/clap-repl/assets/45197576/bec9110e-a399-41e4-8f63-1c8592338625)
+![image](https://github.com/HKalbasi/clap-repl/assets/45197576/a5eb04c0-fafc-479e-ba1a-dd5757f585be)
 
 
