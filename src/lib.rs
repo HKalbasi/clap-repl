@@ -1,4 +1,4 @@
-use std::{ffi::OsString, marker::PhantomData, path::PathBuf, process::exit, str::FromStr};
+use std::{ffi::OsString, marker::PhantomData, path::PathBuf, str::FromStr};
 
 use clap::{Parser, Subcommand};
 use console::style;
@@ -61,6 +61,29 @@ impl<C: Parser + Send + Sync + 'static> reedline::Completer for ReedCompleter<C>
     }
 }
 
+pub enum ReadCommandOutput<C> {
+    /// Input parsed successfully.
+    Command(C),
+
+    /// Input was empty.
+    EmptyLine,
+
+    /// Clap parse error happened. You should print the error manually.
+    ClapError(clap::error::Error),
+
+    /// Input was not lexically valid, for example it had odd number of `"`
+    ShlexError,
+
+    /// Reedline failed to work with stdio.
+    ReedlineError(std::io::Error),
+
+    /// User pressed ctrl+C
+    CtrlC,
+
+    /// User pressed ctrl+D
+    CtrlD,
+}
+
 impl<C: Parser + Send + Sync + 'static> ClapEditor<C> {
     fn construct(prompt: Box<dyn Prompt>, hook: impl FnOnce(Reedline) -> Reedline) -> Self {
         let completion_menu = Box::new(
@@ -113,18 +136,15 @@ impl<C: Parser + Send + Sync + 'static> ClapEditor<C> {
         &mut self.rl
     }
 
-    pub fn read_command(&mut self) -> Option<C> {
+    pub fn read_command(&mut self) -> ReadCommandOutput<C> {
         let line = match self.rl.read_line(&*self.prompt) {
             Ok(Signal::Success(buffer)) => buffer,
-            Ok(Signal::CtrlC | Signal::CtrlD) => {
-                // Drop the `rl` in order to save the history
-                _ = std::mem::replace(&mut self.rl, Reedline::create());
-                exit(0);
-            }
-            _ => return None,
+            Ok(Signal::CtrlC) => return ReadCommandOutput::CtrlC,
+            Ok(Signal::CtrlD) => return ReadCommandOutput::CtrlD,
+            Err(e) => return ReadCommandOutput::ReedlineError(e),
         };
         if line.trim().is_empty() {
-            return None;
+            return ReadCommandOutput::EmptyLine;
         }
 
         // _ = self.rl.add_history_entry(line.as_str());
@@ -133,19 +153,32 @@ impl<C: Parser + Send + Sync + 'static> ClapEditor<C> {
             Some(split) => {
                 match C::try_parse_from(std::iter::once("").chain(split.iter().map(String::as_str)))
                 {
-                    Ok(c) => Some(c),
-                    Err(e) => {
-                        e.print().unwrap();
-                        None
-                    }
+                    Ok(c) => ReadCommandOutput::Command(c),
+                    Err(e) => ReadCommandOutput::ClapError(e),
                 }
             }
-            None => {
-                println!(
-                    "{} input was not valid and could not be processed",
-                    style("error:").red().bold()
-                );
-                None
+            None => ReadCommandOutput::ShlexError,
+        }
+    }
+
+    pub fn repl(mut self, mut handler: impl FnMut(C)) {
+        loop {
+            match self.read_command() {
+                ReadCommandOutput::Command(c) => handler(c),
+                ReadCommandOutput::EmptyLine => (),
+                ReadCommandOutput::ClapError(e) => {
+                    e.print().unwrap();
+                }
+                ReadCommandOutput::ShlexError => {
+                    println!(
+                        "{} input was not valid and could not be processed",
+                        style("Error:").red().bold()
+                    );
+                }
+                ReadCommandOutput::ReedlineError(e) => {
+                    panic!("{e}");
+                }
+                ReadCommandOutput::CtrlC | ReadCommandOutput::CtrlD => break,
             }
         }
     }

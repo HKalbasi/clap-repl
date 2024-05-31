@@ -13,15 +13,12 @@ enum RedisCommand {
 
 fn main() {
     let mut client = redis::Client::open("redis://127.0.0.1/").unwrap();
-    let mut rl = ClapEditor::<RedisCommand>::new();
-    loop {
-        let Some(command) = rl.read_command() else {
-            continue;
-        };
+    let rl = ClapEditor::<RedisCommand>::new();
+    rl.repl(|command| {
         if let Err(e) = process_command(command, &mut client) {
             println!("{e:?}");
         }
-    }
+    });
 }
 
 fn process_command(command: RedisCommand, client: &mut redis::Client) -> redis::RedisResult<()> {
