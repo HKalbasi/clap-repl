@@ -1,6 +1,6 @@
 use std::{ffi::OsString, marker::PhantomData, path::PathBuf, str::FromStr};
 
-use clap::{Parser, Subcommand};
+use clap::Parser;
 use console::style;
 use nu_ansi_term::{Color, Style};
 use reedline::{
