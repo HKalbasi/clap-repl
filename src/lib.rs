@@ -3,6 +3,9 @@ use std::{ffi::OsString, marker::PhantomData, path::PathBuf, str::FromStr};
 use clap::Parser;
 use console::style;
 use nu_ansi_term::{Color, Style};
+
+// reexport reedline to prevent version mixups
+pub use reedline;
 use reedline::{
     default_emacs_keybindings, DefaultHinter, DefaultPrompt, Emacs, IdeMenu, KeyModifiers,
     MenuBuilder, Prompt, Reedline, ReedlineEvent, ReedlineMenu, Signal, Span,
