@@ -1,8 +1,10 @@
 use std::path::PathBuf;
 
 use clap::{Parser, ValueEnum};
+use clap_repl::reedline::{
+    DefaultPrompt, DefaultPromptSegment, FileBackedHistory, Reedline, Signal,
+};
 use clap_repl::ClapEditor;
-use reedline::{DefaultPrompt, DefaultPromptSegment, FileBackedHistory, Reedline, Signal};
 
 #[derive(Debug, Parser)]
 #[command(name = "")] // This name will show up in clap's error messages, so it is important to set it to "".

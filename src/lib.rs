@@ -3,6 +3,9 @@ use std::{ffi::OsString, marker::PhantomData, path::PathBuf, str::FromStr};
 use clap::{Parser, Subcommand};
 use console::style;
 use nu_ansi_term::{Color, Style};
+
+// reexport reedline to prevent version mixups
+pub use reedline;
 use reedline::{
     default_emacs_keybindings, DefaultHinter, DefaultPrompt, Emacs, IdeMenu, KeyModifiers,
     MenuBuilder, Prompt, Reedline, ReedlineEvent, ReedlineMenu, Signal, Span,
@@ -28,7 +31,7 @@ struct ReedCompleter<C: Parser + Send + Sync + 'static> {
 impl<C: Parser + Send + Sync + 'static> reedline::Completer for ReedCompleter<C> {
     fn complete(&mut self, line: &str, pos: usize) -> Vec<reedline::Suggestion> {
         let cmd = C::command();
-        let mut cmd = clap_complete::dynamic::shells::CompleteCommand::augment_subcommands(cmd);
+        let mut cmd = clap_complete::dynamic::command::CompleteCommand::augment_subcommands(cmd);
         let args = Shlex::new(line);
         let mut args = std::iter::once("".to_owned())
             .chain(args)
@@ -50,8 +53,8 @@ impl<C: Parser + Send + Sync + 'static> reedline::Completer for ReedCompleter<C>
         candidates
             .into_iter()
             .map(|c| reedline::Suggestion {
-                value: c.0.to_string_lossy().into_owned(),
-                description: c.1.map(|x| x.to_string()),
+                value: c.get_content().to_string_lossy().into_owned(),
+                description: c.get_help().map(|x| x.to_string()),
                 style: None,
                 extra: None,
                 span,
