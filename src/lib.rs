@@ -2,26 +2,20 @@ use std::{ffi::OsString, marker::PhantomData, path::PathBuf, str::FromStr};
 
 use clap::{Parser, Subcommand};
 use console::style;
-use nu_ansi_term::{Color, Style};
 
 // reexport reedline to prevent version mixups
 pub use reedline;
-use reedline::{
-    default_emacs_keybindings, DefaultHinter, DefaultPrompt, Emacs, IdeMenu, KeyModifiers,
-    MenuBuilder, Prompt, Reedline, ReedlineEvent, ReedlineMenu, Signal, Span,
-};
+use reedline::{Prompt, Reedline, Signal, Span};
 use shlex::Shlex;
+
+mod builder;
+
+pub use builder::ClapEditorBuilder;
 
 pub struct ClapEditor<C: Parser + Send + Sync + 'static> {
     rl: Reedline,
     prompt: Box<dyn Prompt>,
     c_phantom: PhantomData<C>,
-}
-
-impl<C: Parser + Send + Sync + 'static> Default for ClapEditor<C> {
-    fn default() -> Self {
-        Self::new()
-    }
 }
 
 struct ReedCompleter<C: Parser + Send + Sync + 'static> {
@@ -88,51 +82,8 @@ pub enum ReadCommandOutput<C> {
 }
 
 impl<C: Parser + Send + Sync + 'static> ClapEditor<C> {
-    fn construct(prompt: Box<dyn Prompt>, hook: impl FnOnce(Reedline) -> Reedline) -> Self {
-        let completion_menu = Box::new(
-            IdeMenu::default()
-                .with_default_border()
-                .with_name("completion_menu"),
-        );
-        let mut keybindings = default_emacs_keybindings();
-        keybindings.add_binding(
-            KeyModifiers::NONE,
-            reedline::KeyCode::Tab,
-            ReedlineEvent::UntilFound(vec![
-                ReedlineEvent::Menu("completion_menu".to_string()),
-                ReedlineEvent::MenuNext,
-            ]),
-        );
-
-        let rl = Reedline::create()
-            .with_completer(Box::new(ReedCompleter::<C> {
-                c_phantom: PhantomData,
-            }))
-            .with_menu(ReedlineMenu::EngineCompleter(completion_menu))
-            .with_hinter(Box::new(
-                DefaultHinter::default().with_style(Style::new().italic().fg(Color::DarkGray)),
-            ))
-            .with_edit_mode(Box::new(Emacs::new(keybindings)));
-
-        let rl = hook(rl);
-        ClapEditor {
-            rl,
-            prompt,
-            c_phantom: PhantomData,
-        }
-    }
-
-    /// Creates a new `ClapEditor` with the default prompt.
-    pub fn new() -> Self {
-        Self::construct(Box::<DefaultPrompt>::default(), |e| e)
-    }
-
-    /// Creates a new `ClapEditor` with the given prompt.
-    pub fn new_with_prompt(
-        prompt: Box<dyn Prompt>,
-        hook: impl FnOnce(Reedline) -> Reedline,
-    ) -> Self {
-        Self::construct(prompt, hook)
+    pub fn builder() -> ClapEditorBuilder<C> {
+        ClapEditorBuilder::<C>::new()
     }
 
     pub fn get_editor(&mut self) -> &mut Reedline {

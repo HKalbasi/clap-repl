@@ -44,13 +44,16 @@ fn main() {
         left_prompt: DefaultPromptSegment::Basic("simple-example".to_owned()),
         ..DefaultPrompt::default()
     };
-    let rl = ClapEditor::<SampleCommand>::new_with_prompt(Box::new(prompt), |reed| {
-        // Do custom things with `Reedline` instance here
-        reed.with_history(Box::new(
-            FileBackedHistory::with_file(10000, "/tmp/clap-repl-simple-example-history".into())
-                .unwrap(),
-        ))
-    });
+    let rl = ClapEditor::<SampleCommand>::builder()
+        .with_prompt(Box::new(prompt))
+        .with_editor_hook(|reed| {
+            // Do custom things with `Reedline` instance here
+            reed.with_history(Box::new(
+                FileBackedHistory::with_file(10000, "/tmp/clap-repl-simple-example-history".into())
+                    .unwrap(),
+            ))
+        })
+        .build();
     rl.repl(|command| {
         match command {
             SampleCommand::Download { path, check_sha } => {

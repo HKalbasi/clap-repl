@@ -13,7 +13,7 @@ enum RedisCommand {
 
 fn main() {
     let mut client = redis::Client::open("redis://127.0.0.1/").unwrap();
-    let rl = ClapEditor::<RedisCommand>::new();
+    let rl = ClapEditor::<RedisCommand>::builder().build();
     rl.repl(|command| {
         if let Err(e) = process_command(command, &mut client) {
             println!("{e:?}");
