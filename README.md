@@ -21,8 +21,10 @@ Thanks to `clap` and `reedline` this crate handles:
 use std::path::PathBuf;
 
 use clap::{Parser, ValueEnum};
+use clap_repl::reedline::{
+    DefaultPrompt, DefaultPromptSegment, FileBackedHistory, Reedline, Signal,
+};
 use clap_repl::ClapEditor;
-use reedline::{DefaultPrompt, DefaultPromptSegment, FileBackedHistory, Reedline, Signal};
 
 #[derive(Debug, Parser)]
 #[command(name = "")] // This name will show up in clap's error messages, so it is important to set it to "".
@@ -58,20 +60,21 @@ enum Mode {
 }
 
 fn main() {
-    let mut prompt = DefaultPrompt::default();
-    prompt.left_prompt = DefaultPromptSegment::Basic("simple-example".to_owned());
-    let mut rl = ClapEditor::<SampleCommand>::new_with_prompt(Box::new(prompt), |reed| {
-        // Do custom things with `Reedline` instance here
-        reed.with_history(Box::new(
-            FileBackedHistory::with_file(10000, "/tmp/clap-repl-simple-example-history".into())
-                .unwrap(),
-        ))
-    });
-    loop {
-        // Use `read_command` instead of `readline`.
-        let Some(command) = rl.read_command() else {
-            continue;
-        };
+    let prompt = DefaultPrompt {
+        left_prompt: DefaultPromptSegment::Basic("simple-example".to_owned()),
+        ..DefaultPrompt::default()
+    };
+    let rl = ClapEditor::<SampleCommand>::builder()
+        .with_prompt(Box::new(prompt))
+        .with_editor_hook(|reed| {
+            // Do custom things with `Reedline` instance here
+            reed.with_history(Box::new(
+                FileBackedHistory::with_file(10000, "/tmp/clap-repl-simple-example-history".into())
+                    .unwrap(),
+            ))
+        })
+        .build();
+    rl.repl(|command| {
         match command {
             SampleCommand::Download { path, check_sha } => {
                 println!("Downloaded {path:?} with checking = {check_sha}");
@@ -88,7 +91,7 @@ fn main() {
                 println!("Logged in with {username} and {password} in mode {mode:?}");
             }
         }
-    }
+    });
 }
 
 fn read_line_with_reedline(rl: &mut Reedline, prompt: &str) -> String {
