@@ -28,7 +28,7 @@ fn process_command(command: RedisCommand, client: &mut redis::Client) -> redis::
             println!("{r}");
         }
         RedisCommand::Set { key, value } => {
-            client.set(key, value)?;
+            client.set::<_, _, ()>(key, value)?;
             println!("OK");
         }
         RedisCommand::Smembers { key } => {
