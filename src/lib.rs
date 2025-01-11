@@ -132,7 +132,8 @@ impl<C: Parser + Send + Sync + 'static> ClapEditor<C> {
                 ReadCommandOutput::ReedlineError(e) => {
                     panic!("{e}");
                 }
-                ReadCommandOutput::CtrlC | ReadCommandOutput::CtrlD => break,
+                ReadCommandOutput::CtrlC => continue,
+                ReadCommandOutput::CtrlD => break,
             }
         }
     }
