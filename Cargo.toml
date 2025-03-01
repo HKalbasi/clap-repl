@@ -14,13 +14,22 @@ license = "MIT OR Apache-2.0"
 name = "clap_repl"
 path = "src/lib.rs"
 
+[features]
+default = []
+async = []
+
 [dependencies]
-clap = { version = "4.5.16", features = ["derive"] }
+clap = { version = "4.5.32", features = ["derive"] }
 clap_complete = { version = "=4.5.16", features = ["unstable-dynamic", "unstable-command"] }
-console = "0.15.7"
-nu-ansi-term = "0.50.0"
-reedline = "0.32.0"
+console = "0.15.11"
+nu-ansi-term = "0.50.1"
+reedline = "0.38.0"
 shlex = "1.3.0"
 
 [dev-dependencies]
-redis = "0.27.4"
+redis = "0.29.1"
+tokio = { version = "1.44.0", features = ["macros", "rt-multi-thread"] }
+
+[[example]]
+name = "async"
+required-features = ["async"]

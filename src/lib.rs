@@ -137,4 +137,28 @@ impl<C: Parser + Send + Sync + 'static> ClapEditor<C> {
             }
         }
     }
+
+    #[cfg(feature = "async")]
+    pub async fn repl_async(mut self, mut handler: impl AsyncFnMut(C)) {
+        loop {
+            match self.read_command() {
+                ReadCommandOutput::Command(c) => handler(c).await,
+                ReadCommandOutput::EmptyLine => (),
+                ReadCommandOutput::ClapError(e) => {
+                    e.print().unwrap();
+                }
+                ReadCommandOutput::ShlexError => {
+                    println!(
+                        "{} input was not valid and could not be processed",
+                        style("Error:").red().bold()
+                    );
+                }
+                ReadCommandOutput::ReedlineError(e) => {
+                    panic!("{e}");
+                }
+                ReadCommandOutput::CtrlC => continue,
+                ReadCommandOutput::CtrlD => break,
+            }
+        }
+    }
 }
