@@ -90,6 +90,10 @@ impl<C: Parser + Send + Sync + 'static> ClapEditor<C> {
         &mut self.rl
     }
 
+    pub fn set_prompt(&mut self, prompt: Box<dyn Prompt>) {
+        self.prompt = prompt;
+    }
+
     pub fn read_command(&mut self) -> ReadCommandOutput<C> {
         let line = match self.rl.read_line(&*self.prompt) {
             Ok(Signal::Success(buffer)) => buffer,
